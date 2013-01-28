@@ -17,6 +17,8 @@ from django import forms
 import datetime
 from dateutil import parser
 
+MAX_ROWS = 3000
+
 class ReportForm(forms.ModelForm):
     class Meta:
         model = Report
@@ -364,19 +366,23 @@ def download_xlsx(request, pk):
         cell.style.font.bold = True
         ws.column_dimensions[get_column_letter(i+1)].width = field.width
         i += 1
-    
-    objects_list, message = report_to_list(report, request.user)
-    for row in objects_list:
-        ws.append(row)
-    
-    myfile = StringIO.StringIO()
-    myfile.write(save_virtual_workbook(wb))
-    response = HttpResponse(
-        myfile.getvalue(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=%s' % filename
-    response['Content-Length'] = myfile.tell()
+    message = ''
+    objects_list, message = report_to_list(report, request.user) #OK
+    if len(objects_list) < MAX_ROWS:
+        for row in objects_list:
+            ws.append(row)
+        
+        myfile = StringIO.StringIO()
+        myfile.write(save_virtual_workbook(wb))
+        response = HttpResponse(
+            myfile.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=%s' % filename
+        response['Content-Length'] = myfile.tell()
+    else:
+        response = HttpResponse("Error! The maximum number of rows is %s, but this report would have %s rows" % (MAX_ROWS, len(objects_list)+1))
     return response
+
     
     
     
